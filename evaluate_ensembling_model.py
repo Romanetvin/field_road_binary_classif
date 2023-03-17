@@ -9,7 +9,7 @@ import tensorflow.keras
 import tensorflow.keras.backend as K
 from tensorflow.keras.utils import load_img, img_to_array, to_categorical
 
-from sklearn.metrics import cohen_kappa_score
+from sklearn.metrics import cohen_kappa_score, confusion_matrix
 
 import cv2
 
@@ -121,7 +121,6 @@ def convert_label2png(mask):
 
 	return label
 
-
 def load_model_weights(weights_path, architecture):
 	"""
 	Load model weights depending on the architecture
@@ -168,7 +167,6 @@ def load_model_weights(weights_path, architecture):
 
 	return model
 
-
 def evaluate_ensembling(list_weights, list_architectures, gen_args, save_masks = False):
 
 	"""
@@ -204,6 +202,7 @@ def evaluate_ensembling(list_weights, list_architectures, gen_args, save_masks =
 		else:
 			if gen_args['return_filenames']:
 				imgs, filenames = test_gen.__getitem__(i)
+				filenames_to_save.extend(filenames)
 			else:
 				imgs = test_gen.__getitem__(i)
 		final_preds = []
@@ -214,7 +213,6 @@ def evaluate_ensembling(list_weights, list_architectures, gen_args, save_masks =
 
 			unflipped_pred = unflip_aug(np.array(pred))
 
-
 			# Average on probabilities
 			avg_on_flip = np.mean(unflipped_pred, axis=1)
 			avg_on_model = np.mean(avg_on_flip, axis = 0)
@@ -224,7 +222,7 @@ def evaluate_ensembling(list_weights, list_architectures, gen_args, save_masks =
 		final_preds = np.argmax(np.array(final_preds), axis=-1)
 		imgs_to_save.extend(imgs)
 		masks_to_save.extend(final_preds)
-		filenames_to_save.extend(filenames)
+		
 
 		if gen_args['masks_path'] is not None:
 			y_true.extend(convert_mask2binary(masks))
@@ -254,13 +252,16 @@ def evaluate_ensembling(list_weights, list_architectures, gen_args, save_masks =
 			os.makedirs(dest_path, exist_ok=True)
 
 		masks_to_save = np.array(masks_to_save)
-		print(masks_to_save.shape)
-		for img, mask, filename in zip(imgs_to_save, masks_to_save, filenames_to_save):
+
+		binary_preds = convert_mask2binary(masks_to_save)
+
+		print('Binary output for each image : %s' %binary_preds)
+		for img, mask, filename, b_pred in zip(imgs_to_save, masks_to_save, filenames_to_save, binary_preds):
 			png_mask = convert_label2png(mask)
 			img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-			name = '/'.join((dest_path, 'prediction_'+filename.split('/')[-1].split('.')[0]+'.png'))
-			print(name)
+
+			name = '/'.join((dest_path, 'predicted_'+CLASSES[b_pred]+'_gt_'+filename.split('/')[-1].split('.')[0]+'.png'))
 			h_stack = np.hstack((img, png_mask)).astype(int)
 			
 			cv2.imwrite(name, h_stack)
@@ -272,24 +273,40 @@ if __name__ == '__main__':
 
 	
 
-	# Can be either ['test/', 'extra_test/'] or even another folder added to the dataset
-	
+	#############################
+	# Parameters to save masks on images that don't have gt masks
+
+	# 'subset' : Can be either ['test/', 'extra_test/'] or even another folder added to the dataset
 	gen_args = {
-		'subset'            : 'test/',
+		'subset'            : 'extra_test/',
 		'masks_path'        : None,
 		'return_filenames'  : True,
 	}
-
 	SAVE_MASKS = True
+	#############################
+
+	#############################
+	# # Parameters to get test dice score and cohen kappa score on images that havet gt masks
+	# # and to not save masks
+	# # 'subset' : Can be either ['test/', 'extra_test/'] or even another folder added to the dataset
+	# gen_args = {
+	# 	'subset'            : 'test/',
+	# 	'masks_path'        : config.MASKS_PATH,
+	# 	'return_filenames'  : False,
+	# }
+	# SAVE_MASKS = False
+	#############################
+
+
 
 
 
 
 	list_selected_models = [
-		'16-03-2023_20:53:19_attunet_best_model.h5',
+		'16-03-2023_17:31:28_resunet_a_best_model.h5',
 		'17-03-2023_07:31:49_unet3plus_best_model.h5',
-		'16-03-2023_21:20:57_resunet_a_best_model.h5',
-		'16-03-2023_22:08:33_transunet_best_model.h5'
+		'17-03-2023_14:48:01_resunet_a_best_model.h5',
+		'17-03-2023_15:30:28_attunet_best_model.h5'
 	]
 
 	list_selected_models = ['checkpoints/' +elt for elt in list_selected_models]

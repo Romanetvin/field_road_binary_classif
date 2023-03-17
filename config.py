@@ -9,7 +9,7 @@ STEP=100
 VAL_SPLIT=0.2
 AUGMENT=False
 # ['attunet', 'unet3plus', 'resunet_a','transunet', 'swinunet']
-ARCHITECTURE='resunet_a'
+ARCHITECTURE='unet3plus'
 
 DATASET_PATH = '/home/vinnie/Documents/Python/Bilberry/dataset/'
 MASKS_PATH   = DATASET_PATH + 'masks/'
